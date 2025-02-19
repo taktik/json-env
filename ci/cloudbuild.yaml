@@ -1,0 +1,21 @@
+steps:
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args: [ '-c', 'git fetch --unshallow --tags && git checkout ${BRANCH_NAME}' ]
+
+  - name: 'taktik/git-version:2.0.21-g2f3751c36c'
+    args: [ '-f', 'git.version' ]
+
+  - name: 'docker:24'
+    entrypoint: 'sh'
+    args: [ '-c', 'echo ${_DOCKER_PASSWORD} | docker login --username=${_DOCKER_USERNAME} --password-stdin' ]
+
+  - name: 'docker:24'
+    entrypoint: 'sh'
+    args: ['-c', 'docker buildx create --name multiarch --driver docker-container --use']
+
+  - name: 'docker:24-git'
+    entrypoint: 'sh'
+    args: [ '-c', 'docker build --builder multiarch --progress=plain --push --platform linux/amd64,linux/arm64 --tag taktik/json-env:$(cat git.version) -f docker/Dockerfile .' ]
+
+timeout: 300s
