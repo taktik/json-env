@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
 			usage
 			;;
 		*)
-			break # Start processing files
+			break
 			;;
 	esac
 done
@@ -49,60 +49,64 @@ for JSON_FILE in "$@"; do
 	# Prepare JQ transformation command
 	JQ_CMD="."
 
-	# Extract all JSON keys as paths
+	# Extract all JSON keys as paths, using '/' as a separator
 	while IFS= read -r KEY; do
-		# Convert JSON key path to an environment variable key (uppercase + underscores)
-		ENV_KEY=${KEY^^}		 # Convert to uppercase
-		ENV_KEY=${ENV_KEY//\//_} # Replace '/' with '_'
+		# Primary environment variable lookup: Use '.' notation as-is
+		ENV_KEY="${PREFIX}${KEY//\//.}"
 
-		# Apply prefix if defined
-		if [[ -n "$PREFIX" ]]; then
-			ENV_KEY="${PREFIX}${ENV_KEY}"
-		fi
+		# Fallback lookup: Convert '.' to '_' and uppercase for compatibility
+		FALLBACK_ENV_KEY="${PREFIX}${KEY^^}"      # Uppercase
+		FALLBACK_ENV_KEY="${FALLBACK_ENV_KEY//\//_}"  # Replace '/' with '_'
 
-		# Check if the corresponding environment variable exists
+		# Determine which environment variable to use
 		if [[ -v "$ENV_KEY" ]]; then
-			# Build jq path notation
-			JQ_PATH="."
-			IFS='/' read -ra PARTS <<< "$KEY"
-			for PART in "${PARTS[@]}"; do
-				JQ_PATH+="[\"$PART\"]"
-			done
-
-			# Assign value from environment variable
 			ENV_VALUE="${!ENV_KEY}"
-			# Detect existing JSON type
-			JSON_TYPE=$(jq -r "$JQ_PATH | type" "$JSON_FILE" 2>/dev/null)
-
-			# Convert ENV_VALUE based on detected JSON type
-			case "$JSON_TYPE" in
-				boolean)
-					if [[ "$ENV_VALUE" =~ ^(true|false)$ ]]; then
-						VALUE="$ENV_VALUE"
-					else
-						VALUE="false" # Fallback
-					fi
-					;;
-				number)
-					if [[ "$ENV_VALUE" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
-						VALUE="$ENV_VALUE"
-					else
-						VALUE="0" # Fallback
-					fi
-					;;
-				null)
-					VALUE="null"
-					;;
-				array|object)
-					VALUE="$ENV_VALUE" # Assume valid JSON
-					;;
-				string|*)
-					VALUE="\"$ENV_VALUE\""
-					;;
-			esac
-
-			JQ_CMD+=" | ${JQ_PATH} = $VALUE"
+		elif [[ -v "$FALLBACK_ENV_KEY" ]]; then
+			ENV_VALUE="${!FALLBACK_ENV_KEY}"
+		else
+			# Skip if no matching environment variable is found
+			continue
 		fi
+
+		# Build jq path notation
+		JQ_PATH="."
+		IFS='/' read -ra PARTS <<< "$KEY"
+		for PART in "${PARTS[@]}"; do
+			JQ_PATH+="[\"$PART\"]"
+		done
+
+		# Detect existing JSON type
+		JSON_TYPE=$(jq -r "$JQ_PATH | type" "$JSON_FILE" 2>/dev/null)
+
+		# Convert ENV_VALUE based on detected JSON type
+		case "$JSON_TYPE" in
+			boolean)
+				if [[ "$ENV_VALUE" =~ ^(true|false)$ ]]; then
+					VALUE="$ENV_VALUE"
+				else
+					VALUE="false" # Fallback
+				fi
+				;;
+			number)
+				if [[ "$ENV_VALUE" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+					VALUE="$ENV_VALUE"
+				else
+					VALUE="0" # Fallback
+				fi
+				;;
+			null)
+				VALUE="null"
+				;;
+			array|object)
+				VALUE="$ENV_VALUE" # Assume valid JSON
+				;;
+			string|*)
+				VALUE="\"$ENV_VALUE\""
+				;;
+		esac
+
+		# Append the transformation to JQ command
+		JQ_CMD+=" | ${JQ_PATH} = $VALUE"
 	done < <(jq -r -c 'path(..) | map(tostring) | join("/")' "$JSON_FILE")
 
 	# Apply jq transformation if changes are needed
