@@ -1,9 +1,41 @@
 #!/usr/bin/env bash
 
-# Ensure at least one JSON file is provided
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <json_file1> [json_file2 ...]" >&2
+# Usage function
+usage() {
+    echo "Usage: $0 [-p PREFIX] <json_file1> [json_file2 ...]"
+    echo "  -p, --prefix PREFIX  Only apply environment variables with this prefix"
     exit 1
+}
+
+# Parse optional prefix argument
+PREFIX=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -p|--prefix)
+            PREFIX="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        --) # End of options
+            shift
+            break
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            usage
+            ;;
+        *)
+            break # Start processing files
+            ;;
+    esac
+done
+
+# Ensure at least one JSON file is provided
+if [[ $# -eq 0 ]]; then
+    echo "Error: No JSON files specified." >&2
+    usage
 fi
 
 # Process each JSON file
@@ -23,7 +55,12 @@ for JSON_FILE in "$@"; do
         ENV_KEY=${KEY^^}         # Convert to uppercase
         ENV_KEY=${ENV_KEY//\//_} # Replace '/' with '_'
 
-        # Check if corresponding environment variable exists
+        # Apply prefix if defined
+        if [[ -n "$PREFIX" ]]; then
+            ENV_KEY="${PREFIX}${ENV_KEY}"
+        fi
+
+        # Check if the corresponding environment variable exists
         if [[ -v "$ENV_KEY" ]]; then
             # Build jq path notation
             JQ_PATH="."
