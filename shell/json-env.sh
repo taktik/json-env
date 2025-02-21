@@ -113,7 +113,7 @@ for JSON_FILE in "$@"; do
 	if [[ "$JQ_CMD" != "." ]]; then
 		TEMP_FILE="${JSON_FILE}.tmp"
 		if jq -M --tab "$JQ_CMD" "$JSON_FILE" > "$TEMP_FILE"; then
-			mv "$TEMP_FILE" "$JSON_FILE" || cat "$TEMP_FILE" > "$JSON_FILE"
+			mv "$TEMP_FILE" "$JSON_FILE" 2>/dev/null || cat "$TEMP_FILE" > "$JSON_FILE"
 		else
 			echo "Error processing '$JSON_FILE' with jq." >&2
 			rm -f "$TEMP_FILE"
