@@ -71,11 +71,37 @@ for JSON_FILE in "$@"; do
 
             # Assign value from environment variable
             ENV_VALUE="${!ENV_KEY}"
-            if [[ "$ENV_VALUE" == \[* || "$ENV_VALUE" == \{* ]]; then
-                JQ_CMD+=" | ${JQ_PATH} = $ENV_VALUE"  # Raw JSON value
-            else
-                JQ_CMD+=" | ${JQ_PATH} = env.$ENV_KEY"  # String value from environment
-            fi
+            # Detect existing JSON type
+            JSON_TYPE=$(jq -r "$JQ_PATH | type" "$JSON_FILE" 2>/dev/null)
+
+            # Convert ENV_VALUE based on detected JSON type
+            case "$JSON_TYPE" in
+                boolean)
+                    if [[ "$ENV_VALUE" =~ ^(true|false)$ ]]; then
+                        VALUE="$ENV_VALUE"
+                    else
+                        VALUE="false" # Fallback
+                    fi
+                    ;;
+                number)
+                    if [[ "$ENV_VALUE" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+                        VALUE="$ENV_VALUE"
+                    else
+                        VALUE="0" # Fallback
+                    fi
+                    ;;
+                null)
+                    VALUE="null"
+                    ;;
+                array|object)
+                    VALUE="$ENV_VALUE" # Assume valid JSON
+                    ;;
+                string|*)
+                    VALUE="\"$ENV_VALUE\""
+                    ;;
+            esac
+
+            JQ_CMD+=" | ${JQ_PATH} = $VALUE"
         fi
     done < <(jq -r -c 'path(..) | map(tostring) | join("/")' "$JSON_FILE")
 
