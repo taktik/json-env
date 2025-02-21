@@ -55,8 +55,8 @@ for JSON_FILE in "$@"; do
 		ENV_KEY="${PREFIX}${KEY//\//.}"
 
 		# Fallback lookup: Convert '.' to '_' and uppercase for compatibility
-		FALLBACK_ENV_KEY="${PREFIX}${KEY^^}"      # Uppercase
-		FALLBACK_ENV_KEY="${FALLBACK_ENV_KEY//\//_}"  # Replace '/' with '_'
+		FALLBACK_ENV_KEY="${PREFIX}${KEY^^}"
+		FALLBACK_ENV_KEY="${FALLBACK_ENV_KEY//\//_}"
 
 		# Determine which environment variable to use
 		if printenv "$ENV_KEY" >/dev/null; then
