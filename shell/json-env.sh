@@ -59,8 +59,8 @@ for JSON_FILE in "$@"; do
 		FALLBACK_ENV_KEY="${FALLBACK_ENV_KEY//\//_}"  # Replace '/' with '_'
 
 		# Determine which environment variable to use
-		if [[ -v "$ENV_KEY" ]]; then
-			ENV_VALUE="${!ENV_KEY}"
+		if printenv "$ENV_KEY" >/dev/null; then
+			ENV_VALUE="$(printenv "$ENV_KEY")"
 		elif [[ -v "$FALLBACK_ENV_KEY" ]]; then
 			ENV_VALUE="${!FALLBACK_ENV_KEY}"
 		else
